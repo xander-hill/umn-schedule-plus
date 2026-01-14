@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "UMN Schedule Plus",
+  "version": "1.0",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["*://apas.umn.edu/*"],
+      "js": ["src/apas-parser.js"]
+    },
+    {
+      "matches": ["*://schedulebuilder.umn.edu/*"],
+      "js": ["src/builder-ui.js"]
+    }
+  ],
+  "action": {
+    "default_title": "UMN Schedule Plus"
+  }
+}
