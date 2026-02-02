@@ -1,66 +1,52 @@
+// src/scripts/apas-scraper.js
 const APAS_SCRAPER = {
     init: () => {
-        // UI Button
         const btn = document.createElement('button');
-        btn.id = "umn-sync-btn";
-        btn.innerText = "🔄 Sync Requirements";
+        btn.id = "umn-plus-sync";
+        btn.innerText = "🔄 Sync Academic Profile";
         Object.assign(btn.style, {
             position: 'fixed', top: '20px', right: '20px', zIndex: 10000,
             padding: '12px 18px', backgroundColor: '#7a0019', color: '#ffcc33',
-            border: '2px solid #ffcc33', borderRadius: '8px', fontWeight: 'bold',
-            cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-            transition: 'transform 0.2s'
+            border: '2px solid #ffcc33', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer'
         });
-
-        // Hover effect
-        btn.onmouseover = () => btn.style.transform = 'scale(1.05)';
-        btn.onmouseout = () => btn.style.transform = 'scale(1.0)';
-        
         btn.onclick = APAS_SCRAPER.run;
         document.body.appendChild(btn);
     },
 
     run: () => {
-        const unmetData = [];
-        // Look for all subrequirement containers
-        const subReqs = document.querySelectorAll('.subrequirement');
+        const auditData = [];
+        const mainReqs = document.querySelectorAll('.requirement');
 
-        subReqs.forEach(sub => {
-            const status = sub.querySelector('.status');
+        mainReqs.forEach(req => {
+            // 1. Get the status of the OVERALL REQUIREMENT
+            const overallStatusEl = req.querySelector('.status'); // This is the parent status
+            const isOverallMet = overallStatusEl?.classList.contains('Status_OK');
+            const isOverallIP = overallStatusEl?.classList.contains('Status_IP');
             
-            // Only scrape if it is Unmet (Status_NO) or In-Progress (Status_IP)
-            if (status && (status.classList.contains('Status_NO') || status.classList.contains('Status_IP'))) {
-                
-                const title = sub.querySelector('.subreqTitle')?.innerText.trim() || "Requirement";
-                const courseElements = sub.querySelectorAll('.course.draggable');
-                
-                const options = Array.from(courseElements).map(el => {
-                    // UMN uses '1CSCI', '1MATH'. We strip the '1'.
-                    let dept = el.getAttribute('department') || "";
-                    if (dept.startsWith('1')) dept = dept.substring(1);
-                    
-                    // Get number from attribute; fallback to inner text for wildcards like '4xxx'
-                    let num = el.getAttribute('number') || el.innerText.replace(dept, '').trim();
-                    
-                    return {
-                        dept: dept.toUpperCase(),
-                        number: num.toUpperCase(),
-                        full: `${dept}${num}`.replace(/\s+/g, '').toUpperCase()
-                    };
+            const overallStatusLabel = isOverallMet ? 'MET' : (isOverallIP ? 'IP' : 'UNMET');
+            const overallTitle = req.querySelector('.reqTitle')?.innerText.trim() || "Requirement";
+
+            const subReqs = req.querySelectorAll('.subrequirement');
+            subReqs.forEach(sub => {
+                // Get sub-requirement data as before
+                const subStatusEl = sub.querySelector('.status');
+                const subStatus = subStatusEl?.classList.contains('Status_OK') ? 'MET' : 'UNMET';
+
+                auditData.push({
+                    requirementTitle: overallTitle,
+                    requirementStatus: overallStatusLabel, // <--- This is what you want
+                    subTitle: sub.querySelector('.subreqTitle')?.innerText.trim(),
+                    subStatus: subStatus,
+                    options: Array.from(sub.querySelectorAll('.course.draggable')).map(el => {
+                        let dept = (el.getAttribute('department') || "").toUpperCase();
+                        let num = (el.getAttribute('number') || el.innerText.replace(dept, '').trim()).toUpperCase();
+                        return { dept, num };
+                    })
                 });
-
-                if (options.length > 0) {
-                    unmetData.push({ title, options });
-                }
-            }
+            });
         });
 
-        // Save to storage and notify user
-        chrome.storage.local.set({ "unmetRequirements": unmetData }, () => {
-            console.log("Synced Requirements:", unmetData);
-            alert(`Synced ${unmetData.length} requirement categories!`);
-        });
+        chrome.storage.local.set({ "fullDegreeAudit": auditData });
     }
 };
-
 APAS_SCRAPER.init();
